@@ -7,7 +7,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ variant = "elevated", children, ...rest }, ref) => {
-    const recipe = useRecipe({ recipe: "card" });
+    const recipe = useRecipe({ key: "card" });
     const styles = recipe({ variant });
 
     return (

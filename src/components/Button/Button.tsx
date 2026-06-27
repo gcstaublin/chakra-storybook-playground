@@ -10,7 +10,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "primary", size = "md", isLoading, loadingText, children, disabled, ...rest }, ref) => {
-    const recipe = useRecipe({ recipe: "button" });
+    const recipe = useRecipe({ key: "button" });
     const styles = recipe({ variant, size });
 
     return (
