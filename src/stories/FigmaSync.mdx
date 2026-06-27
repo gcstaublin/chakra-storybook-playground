@@ -6,6 +6,8 @@ import { Meta } from "@storybook/addon-docs/blocks";
 
 The token system syncs bidirectionally with Figma via Claude + the Figma Console MCP. The DTCG JSON files in `src/tokens/` are always the source of truth — Figma is a reflection of them, not the other way around (until a designer intentionally pushes a change back).
 
+Each token has its Figma variable ID embedded in `$extensions.figma`, so sync is ID-based and survives renames on either side.
+
 **Prerequisites:**
 - Figma Desktop app open with the target file
 - Figma Console MCP desktop bridge running
@@ -32,7 +34,7 @@ Open a Claude session with the Figma MCP connected and say:
 Claude will:
 1. Read the three DTCG JSON files
 2. Convert OKLCH colors → hex, rem → px (Figma-required formats)
-3. Call `figma_batch_update_variables` for existing variables
+3. Call `figma_batch_update_variables` for existing variables, matched by `$extensions.figma.variableId`
 4. Call `figma_execute` for alias variables (semantic → base, component → semantic)
 
 **What gets synced:**
@@ -73,9 +75,9 @@ Then verify in Storybook that nothing looks broken before committing.
 
 ---
 
-## Embedding Figma Variable IDs in Tokens
+## About Figma Variable IDs
 
-Currently the sync matches variables by name. A more robust approach is to embed each variable's Figma ID directly in the DTCG JSON using the `$extensions` field:
+Every token in `src/tokens/` carries its Figma variable ID in the `$extensions.figma` field:
 
 ```json
 {
@@ -92,33 +94,35 @@ Currently the sync matches variables by name. A more robust approach is to embed
 }
 ```
 
-**Why this matters:** Name-based matching breaks if a variable is renamed in either Figma or the JSON. ID-based matching is exact and survives renames on either side.
-
-**When to do this:** After a stable sync where all variables exist in both places, ask Claude to:
-
-> "Read the current Figma variable IDs from [file name] and write them into `src/tokens/` as `$extensions.figma` on each matching token."
-
-Style Dictionary ignores unknown `$extensions` fields, so this has no effect on the build.
+Style Dictionary ignores unknown `$extensions` fields, so this has no effect on the token build. Three tokens (`card-shadow`, `dialog-shadow`, `dialog-z-index`) have no Figma counterpart because Figma doesn't support shadow and z-index as variable types — they remain without IDs.
 
 ---
 
 ## Migrating to a New Figma File
 
-When the source-of-truth Figma file changes — for example, moving from a sandbox file to a production design system file — all variable IDs change. Follow these steps:
+When the source-of-truth Figma file changes — for example, moving from a sandbox file to a production design system file — all variable IDs change. Because IDs are now embedded in the JSON, follow this order to avoid stale IDs causing confusion during the push:
 
-**Step 1 — Push tokens to the new file**
+**Step 1 — Clear the stale IDs**
+
+Ask Claude to:
+
+> "Remove all `$extensions.figma` fields from `src/tokens/base.json`, `src/tokens/semantic.json`, and `src/tokens/component.json`."
+
+This ensures the push to the new file is unambiguously name-based with no risk of old IDs being used for matching.
+
+**Step 2 — Push tokens to the new file**
 
 With the new file open in Figma Desktop and the MCP connected:
 
 > "Create variable collections (Base, Semantic, Component) in [new file name] and push all tokens from `src/tokens/` into them."
 
-**Step 2 — Update embedded IDs (if using `$extensions`)**
+**Step 3 — Pull the new variable IDs back**
 
-If your tokens have Figma IDs embedded from the old file, ask Claude to:
+Once the push is complete, ask Claude to:
 
-> "Read the variable IDs from the new Figma file and update the `$extensions.figma` fields in `src/tokens/` to match the new IDs."
+> "Read the variable IDs from the new Figma file and write them into `src/tokens/` as `$extensions.figma` on each matching token."
 
-**Step 3 — Update any hardcoded file references**
+**Step 4 — Update any hardcoded file references**
 
 The file key is visible in the Figma URL: `figma.com/design/<FILE_KEY>/`. Search for the old key:
 
@@ -128,7 +132,7 @@ grep -r "OLD_FILE_KEY" .
 
 Replace it with the new file key anywhere it appears in config or documentation.
 
-**Step 4 — Verify**
+**Step 5 — Verify and commit**
 
 ```bash
 npm run build:tokens
