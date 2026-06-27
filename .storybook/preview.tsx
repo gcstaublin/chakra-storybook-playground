@@ -16,7 +16,7 @@ const preview: Preview = {
       storySort: {
         order: [
           "Documentation",
-          ["Getting Started", "Design Tokens", "Components", "Figma Sync"],
+          ["Getting Started", "Design Tokens", "Components", "Figma Sync", "Chromatic Setup"],
           "Design Tokens",
           "Components",
         ],
