@@ -1,0 +1,61 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Getting Started" />
+
+# Getting Started
+
+This app is a token-driven Chakra UI v3 component library. Every component style flows from a three-layer design token system — nothing is hardcoded.
+
+---
+
+## Local Setup
+
+**Prerequisites:** Node 22+ and npm.
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd chakra-storybook-playground
+npm install
+
+# Build tokens first (required before Storybook renders correctly)
+npm run build:tokens
+
+# Start Storybook
+npm run storybook
+```
+
+> **Why build tokens first?** Storybook imports `build/css/tokens.css` at startup. If that file doesn't exist, components render unstyled. You only need to rerun `npm run build:tokens` when you change a file in `src/tokens/`.
+
+---
+
+## How It Fits Together
+
+```
+src/tokens/*.json
+  → Style Dictionary (npm run build:tokens)
+  → build/css/tokens.css        (CSS vars, OKLCH colors)
+  → Chakra ChakraProvider
+  → useRecipe() in components
+  → var(--ds-*) in the DOM
+```
+
+```
+src/
+├── tokens/
+│   ├── base.json        Layer 1 — raw values
+│   ├── semantic.json    Layer 2 — intent aliases
+│   └── component.json   Layer 3 — per-component refs
+├── components/
+│   └── Button/
+│       ├── recipe.ts    defineRecipe — all styles as var(--ds-*) refs
+│       └── Button.tsx   useRecipe, zero hardcoded styles
+├── stories/
+│   ├── Button.stories.tsx
+│   ├── TokenDocs.stories.tsx
+│   └── GettingStarted.mdx
+└── system.ts            createSystem — registers recipes, --ds- prefix
+
+style-dictionary.config.mjs   transforms + 4 build outputs
+build/                        generated — gitignored
+```

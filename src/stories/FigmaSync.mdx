@@ -1,0 +1,138 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Figma Sync" />
+
+# Figma Sync
+
+The token system syncs bidirectionally with Figma via Claude + the Figma Console MCP. The DTCG JSON files in `src/tokens/` are always the source of truth — Figma is a reflection of them, not the other way around (until a designer intentionally pushes a change back).
+
+**Prerequisites:**
+- Figma Desktop app open with the target file
+- Figma Console MCP desktop bridge running
+- Claude Code session with the Figma MCP connected
+
+---
+
+## Code → Figma (push tokens to Figma)
+
+Use this when you've updated tokens in `src/tokens/` and want Figma to reflect the changes.
+
+**Step 1 — Build tokens**
+
+```bash
+npm run build:tokens
+```
+
+**Step 2 — Ask Claude to push**
+
+Open a Claude session with the Figma MCP connected and say:
+
+> "Push all tokens from `src/tokens/` to the Figma variable collections in [file name]. Update any variables that exist and create any that are missing."
+
+Claude will:
+1. Read the three DTCG JSON files
+2. Convert OKLCH colors → hex, rem → px (Figma-required formats)
+3. Call `figma_batch_update_variables` for existing variables
+4. Call `figma_execute` for alias variables (semantic → base, component → semantic)
+
+**What gets synced:**
+
+| Token type | Figma type | Format |
+| --- | --- | --- |
+| Color | `COLOR` | Hex (`#0071df`) |
+| Dimension | `FLOAT` | Pixels (`16`) |
+| Font weight | `FLOAT` | Numeric (`600`) |
+| Line height | `FLOAT` | Unitless (`1.5`) |
+| Shadow | `STRING` | CSS string |
+| Semantic tokens | `VARIABLE_ALIAS` | Live reference to Base variable |
+| Component tokens | `VARIABLE_ALIAS` | Live reference to Semantic variable |
+
+---
+
+## Figma → Code (pull Figma changes back)
+
+Use this when a designer has changed variable values in Figma and you want to bring those changes back into the token JSON.
+
+**Ask Claude:**
+
+> "Read the current variable values from the Figma file and update `src/tokens/` to match any values that have changed. Convert hex colors to OKLCH and px values to rem."
+
+Claude will:
+1. Call `figma_get_variables` to read all three collections
+2. Diff the values against the current DTCG JSON
+3. Write updates back to the appropriate JSON file
+4. Report a summary of what changed
+
+**After pulling, always rebuild:**
+
+```bash
+npm run build:tokens
+```
+
+Then verify in Storybook that nothing looks broken before committing.
+
+---
+
+## Embedding Figma Variable IDs in Tokens
+
+Currently the sync matches variables by name. A more robust approach is to embed each variable's Figma ID directly in the DTCG JSON using the `$extensions` field:
+
+```json
+{
+  "color-blue-500": {
+    "$value": "oklch(55% 0.2 250)",
+    "$type": "color",
+    "$extensions": {
+      "figma": {
+        "variableId": "VariableID:1:7",
+        "collectionId": "VariableCollectionId:1:2"
+      }
+    }
+  }
+}
+```
+
+**Why this matters:** Name-based matching breaks if a variable is renamed in either Figma or the JSON. ID-based matching is exact and survives renames on either side.
+
+**When to do this:** After a stable sync where all variables exist in both places, ask Claude to:
+
+> "Read the current Figma variable IDs from [file name] and write them into `src/tokens/` as `$extensions.figma` on each matching token."
+
+Style Dictionary ignores unknown `$extensions` fields, so this has no effect on the build.
+
+---
+
+## Migrating to a New Figma File
+
+When the source-of-truth Figma file changes — for example, moving from a sandbox file to a production design system file — all variable IDs change. Follow these steps:
+
+**Step 1 — Push tokens to the new file**
+
+With the new file open in Figma Desktop and the MCP connected:
+
+> "Create variable collections (Base, Semantic, Component) in [new file name] and push all tokens from `src/tokens/` into them."
+
+**Step 2 — Update embedded IDs (if using `$extensions`)**
+
+If your tokens have Figma IDs embedded from the old file, ask Claude to:
+
+> "Read the variable IDs from the new Figma file and update the `$extensions.figma` fields in `src/tokens/` to match the new IDs."
+
+**Step 3 — Update any hardcoded file references**
+
+The file key is visible in the Figma URL: `figma.com/design/<FILE_KEY>/`. Search for the old key:
+
+```bash
+grep -r "OLD_FILE_KEY" .
+```
+
+Replace it with the new file key anywhere it appears in config or documentation.
+
+**Step 4 — Verify**
+
+```bash
+npm run build:tokens
+npm run storybook
+```
+
+Confirm tokens render correctly in Storybook, then commit the updated JSON files.

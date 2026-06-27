@@ -1,0 +1,95 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Design Tokens" />
+
+# Design Tokens
+
+Tokens live in `src/tokens/` as DTCG-spec JSON and are built into CSS custom properties by Style Dictionary. They are the single source of truth for every style in the system — nothing is hardcoded in components.
+
+---
+
+## How Tokens Work
+
+### Three layers
+
+| Layer | File | Purpose |
+| --- | --- | --- |
+| Base | `src/tokens/base.json` | Raw values — colors (OKLCH), spacing, type scale, radii, shadows |
+| Semantic | `src/tokens/semantic.json` | Intent aliases — `color-action-primary` references `color-blue-500` |
+| Component | `src/tokens/component.json` | Per-component refs — `button-bg-primary` references `color-action-primary` |
+
+The layering means a single change to a base color automatically flows through to every semantic and component token that references it.
+
+### Token format (DTCG spec)
+
+```json
+{
+  "color-blue-500":     { "$value": "oklch(55% 0.2 250)", "$type": "color" },
+  "space-4":            { "$value": "1rem",               "$type": "dimension" },
+  "line-height-normal": { "$value": 1.5,                  "$type": "number" }
+}
+```
+
+Rules:
+- Always use `$value` and `$type`. Never bare strings.
+- Colors are authored in **OKLCH**. Hex is a transform output only.
+- Line heights use `$type: "number"` with unitless values.
+- Reference another token with `{token-name}` syntax.
+
+### Build outputs
+
+Run `npm run build:tokens` to produce four artifacts (all gitignored):
+
+| Output | Path | Used by |
+| --- | --- | --- |
+| OKLCH CSS vars | `build/css/tokens.css` | Storybook + app (primary) |
+| Hex/px CSS vars | `build/css/tokens-hex.css` | Figma sync |
+| SCSS variables | `build/scss/_tokens.scss` | Any SCSS consumers |
+| TypeScript constants | `build/ts/tokens.ts` | Type-safe token references |
+
+---
+
+## Adding or Updating Tokens
+
+### Token naming convention
+
+```
+{category}-{scale}               # base:      color-blue-500, space-4
+{category}-{intent}-{modifier}   # semantic:  color-action-primary-hover
+{component}-{property}-{state}   # component: button-bg-danger-hover
+```
+
+### Add a new base value
+
+```json
+// src/tokens/base.json
+{
+  "color-purple-500": { "$value": "oklch(55% 0.22 310)", "$type": "color" }
+}
+```
+
+### Add a semantic alias
+
+```json
+// src/tokens/semantic.json
+{
+  "color-brand-primary": { "$value": "{color-purple-500}", "$type": "color" }
+}
+```
+
+### Add a component token
+
+```json
+// src/tokens/component.json
+{
+  "badge-bg": { "$value": "{color-brand-primary}", "$type": "color" }
+}
+```
+
+Then rebuild:
+
+```bash
+npm run build:tokens
+```
+
+The new CSS vars are immediately available in Storybook via hot reload.

@@ -1,0 +1,188 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Components" />
+
+# Components
+
+All components follow the same pattern: tokens → recipe → component → register → stories. No style values are ever hardcoded — everything references a `var(--ds-*)` CSS custom property.
+
+---
+
+## Adding a New Component
+
+### Step 1 — Add component tokens
+
+```json
+// src/tokens/component.json
+{
+  "badge-bg-success":    { "$value": "{color-success}",        "$type": "color" },
+  "badge-bg-danger":     { "$value": "{color-danger}",         "$type": "color" },
+  "badge-color":         { "$value": "{color-text-on-action}", "$type": "color" },
+  "badge-padding-x":     { "$value": "{space-2}",              "$type": "dimension" },
+  "badge-padding-y":     { "$value": "{space-1}",              "$type": "dimension" },
+  "badge-border-radius": { "$value": "{border-radius-full}",   "$type": "dimension" },
+  "badge-font-size":     { "$value": "{font-size-xs}",         "$type": "dimension" },
+  "badge-font-weight":   { "$value": "{font-weight-semibold}", "$type": "fontWeight" }
+}
+```
+
+Then rebuild:
+
+```bash
+npm run build:tokens
+```
+
+### Step 2 — Create the recipe
+
+```ts
+// src/components/Badge/recipe.ts
+import { defineRecipe } from "@chakra-ui/react";
+
+export const badgeRecipe = defineRecipe({
+  base: {
+    display: "inline-flex",
+    alignItems: "center",
+    px: "var(--ds-badge-padding-x)",
+    py: "var(--ds-badge-padding-y)",
+    borderRadius: "var(--ds-badge-border-radius)",
+    fontSize: "var(--ds-badge-font-size)",
+    fontWeight: "var(--ds-badge-font-weight)",
+    color: "var(--ds-badge-color)",
+    lineHeight: 1,
+  },
+  variants: {
+    variant: {
+      success: { bg: "var(--ds-badge-bg-success)" },
+      danger:  { bg: "var(--ds-badge-bg-danger)" },
+    },
+  },
+  defaultVariants: { variant: "success" },
+});
+```
+
+> Every style value must be a `var(--ds-*)` reference. No hardcoded colors, spacing, or font sizes in recipe files.
+
+### Step 3 — Create the component
+
+```tsx
+// src/components/Badge/Badge.tsx
+import { forwardRef } from "react";
+import { chakra, useRecipe } from "@chakra-ui/react";
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  variant?: "success" | "danger";
+}
+
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
+  ({ variant = "success", ...rest }, ref) => {
+    const recipe = useRecipe({ recipe: "badge" });
+    const styles = recipe({ variant });
+    return <chakra.span ref={ref} css={styles} {...rest} />;
+  }
+);
+
+Badge.displayName = "Badge";
+```
+
+### Step 4 — Register the recipe
+
+```ts
+// src/system.ts
+import { badgeRecipe } from "./components/Badge/recipe";
+
+const config = defineConfig({
+  theme: {
+    recipes: {
+      button: buttonRecipe,
+      card: cardRecipe,
+      input: inputRecipe,
+      badge: badgeRecipe,   // ← add this
+    },
+  },
+});
+```
+
+### Step 5 — Write stories
+
+See the Writing Stories section below.
+
+---
+
+## Writing Stories
+
+Every component gets a `*.stories.tsx` file in `src/stories/`.
+
+```tsx
+// src/stories/Badge.stories.tsx
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Badge } from "../components/Badge/Badge";
+
+const meta: Meta<typeof Badge> = {
+  title: "Components/Badge",    // determines sidebar placement
+  component: Badge,
+  args: { children: "Badge", variant: "success" },
+  argTypes: {
+    variant: { control: "select", options: ["success", "danger"] },
+  },
+};
+
+export default meta;
+type Story = StoryObj<typeof Badge>;
+
+export const Success: Story = { args: { variant: "success", children: "Success" } };
+export const Danger:  Story = { args: { variant: "danger",  children: "Danger"  } };
+
+export const AllVariants: Story = {
+  render: () => (
+    <div style={{ display: "flex", gap: "8px" }}>
+      <Badge variant="success">Success</Badge>
+      <Badge variant="danger">Danger</Badge>
+    </div>
+  ),
+};
+```
+
+Use `title: "Components/<Name>"` to keep all components grouped in the sidebar. Each named export becomes one entry.
+
+---
+
+## Updating an Existing Recipe
+
+To add a `warning` variant to Button:
+
+```json
+// 1. src/tokens/base.json — add the raw value if it doesn't exist
+{ "color-yellow-500": { "$value": "oklch(80% 0.18 85)", "$type": "color" } }
+```
+
+```json
+// 2. src/tokens/component.json — add component tokens
+{
+  "button-bg-warning":       { "$value": "{color-yellow-500}", "$type": "color" },
+  "button-bg-warning-hover": { "$value": "{color-yellow-600}", "$type": "color" }
+}
+```
+
+```bash
+# 3. Rebuild
+npm run build:tokens
+```
+
+```ts
+// 4. src/components/Button/recipe.ts — add the variant
+variants: {
+  variant: {
+    // ...existing variants
+    warning: {
+      bg: "var(--ds-button-bg-warning)",
+      color: "var(--ds-color-text-primary)",
+      _hover: { bg: "var(--ds-button-bg-warning-hover)" },
+    },
+  },
+}
+```
+
+```ts
+// 5. src/components/Button/Button.tsx — extend the type
+variant?: "primary" | "secondary" | "ghost" | "danger" | "warning";
+```
