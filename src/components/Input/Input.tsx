@@ -1,18 +1,19 @@
 import { forwardRef } from "react";
-import { styled } from "@chakra-ui/react";
-import { inputRecipe } from "./recipe";
+import { chakra, useRecipe } from "@chakra-ui/react";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   isInvalid?: boolean;
 }
 
-const StyledInput = styled("input", inputRecipe);
-
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ isInvalid, ...rest }, ref) => {
+    const recipe = useRecipe({ key: "input" });
+    const styles = recipe();
+
     return (
-      <StyledInput
+      <chakra.input
         ref={ref}
+        {...styles}
         aria-invalid={isInvalid}
         data-invalid={isInvalid ? "" : undefined}
         {...rest}

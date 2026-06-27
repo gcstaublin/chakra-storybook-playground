@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
-import { styled } from "@chakra-ui/react";
-import { buttonRecipe } from "./recipe";
+import { chakra, useRecipe } from "@chakra-ui/react";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -9,21 +8,21 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loadingText?: string;
 }
 
-const StyledButton = styled("button", buttonRecipe);
-
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "primary", size = "md", isLoading, loadingText, children, disabled, ...rest }, ref) => {
+    const recipe = useRecipe({ key: "button" });
+    const styles = recipe({ variant, size });
+
     return (
-      <StyledButton
+      <chakra.button
         ref={ref}
-        variant={variant}
-        size={size}
+        {...styles}
         disabled={disabled || isLoading}
         aria-busy={isLoading}
         {...rest}
       >
         {isLoading ? (loadingText ?? "Loading…") : children}
-      </StyledButton>
+      </chakra.button>
     );
   }
 );
