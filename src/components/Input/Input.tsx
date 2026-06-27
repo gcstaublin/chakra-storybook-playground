@@ -7,13 +7,13 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ isInvalid, ...rest }, ref) => {
-    const recipe = useRecipe({ recipe: "input" });
+    const recipe = useRecipe({ key: "input" });
     const styles = recipe();
 
     return (
       <chakra.input
         ref={ref}
-        css={styles}
+        {...styles}
         aria-invalid={isInvalid}
         data-invalid={isInvalid ? "" : undefined}
         {...rest}

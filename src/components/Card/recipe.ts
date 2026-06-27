@@ -2,7 +2,7 @@ import { defineRecipe } from "@chakra-ui/react";
 
 export const cardRecipe = defineRecipe({
   base: {
-    bg: "var(--ds-card-bg)",
+    backgroundColor: "var(--ds-card-bg)",
     border: "1px solid var(--ds-card-border-color)",
     borderRadius: "var(--ds-card-border-radius)",
     padding: "var(--ds-card-padding)",
@@ -19,7 +19,7 @@ export const cardRecipe = defineRecipe({
         border: "1px solid var(--ds-card-border-color)",
       },
       subtle: {
-        bg: "var(--ds-color-surface-subtle)",
+        backgroundColor: "var(--ds-color-surface-subtle)",
         boxShadow: "none",
         border: "none",
       },

@@ -42,8 +42,8 @@ export const badgeRecipe = defineRecipe({
   base: {
     display: "inline-flex",
     alignItems: "center",
-    px: "var(--ds-badge-padding-x)",
-    py: "var(--ds-badge-padding-y)",
+    paddingInline: "var(--ds-badge-padding-x)",
+    paddingBlock: "var(--ds-badge-padding-y)",
     borderRadius: "var(--ds-badge-border-radius)",
     fontSize: "var(--ds-badge-font-size)",
     fontWeight: "var(--ds-badge-font-weight)",
@@ -52,8 +52,8 @@ export const badgeRecipe = defineRecipe({
   },
   variants: {
     variant: {
-      success: { bg: "var(--ds-badge-bg-success)" },
-      danger:  { bg: "var(--ds-badge-bg-danger)" },
+      success: { backgroundColor: "var(--ds-badge-bg-success)" },
+      danger:  { backgroundColor: "var(--ds-badge-bg-danger)" },
     },
   },
   defaultVariants: { variant: "success" },
@@ -75,9 +75,9 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ variant = "success", ...rest }, ref) => {
-    const recipe = useRecipe({ recipe: "badge" });
+    const recipe = useRecipe({ key: "badge" });
     const styles = recipe({ variant });
-    return <chakra.span ref={ref} css={styles} {...rest} />;
+    return <chakra.span ref={ref} {...styles} {...rest} />;
   }
 );
 
@@ -174,9 +174,9 @@ variants: {
   variant: {
     // ...existing variants
     warning: {
-      bg: "var(--ds-button-bg-warning)",
+      backgroundColor: "var(--ds-button-bg-warning)",
       color: "var(--ds-color-text-primary)",
-      _hover: { bg: "var(--ds-button-bg-warning-hover)" },
+      "&:hover:not(:disabled)": { backgroundColor: "var(--ds-button-bg-warning-hover)" },
     },
   },
 }
