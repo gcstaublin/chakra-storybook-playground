@@ -1,0 +1,110 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Chromatic Setup" />
+
+# Chromatic Setup
+
+Chromatic provides visual regression testing — it snapshots every story on each PR and flags any unintended visual changes for review before merge. The CI workflow is already wired up and waiting; it just needs a project token to activate.
+
+---
+
+## Current State
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` already:
+- Builds tokens (`npm run build:tokens`)
+- Builds Storybook (`npm run build-storybook`)
+- Has the Chromatic job ready, just commented out
+
+All you need to do is uncomment the Chromatic job and add the token.
+
+---
+
+## Step 1 — Create a Chromatic Account
+
+1. Go to [chromatic.com](https://www.chromatic.com)
+2. Sign in with your **personal** GitHub account (not a work org)
+3. Create a new personal workspace if prompted
+4. Click **Add project** and select `chakra-storybook-playground`
+5. Copy the project token — it looks like `chpt_xxxxxxxxxxxxxxx`
+
+> **Work org conflict?** If Chromatic keeps routing you to a work org, try signing into GitHub in a separate browser profile that has no work org associated, then connect Chromatic from there.
+
+---
+
+## Step 2 — Add the Token to GitHub Secrets
+
+1. Go to your repo on GitHub: `github.com/gcstaublin/chakra-storybook-playground`
+2. **Settings → Secrets and variables → Actions**
+3. Click **New repository secret**
+4. Name: `CHROMATIC_PROJECT_TOKEN`
+5. Value: paste your project token
+6. Click **Add secret**
+
+---
+
+## Step 3 — Uncomment the Chromatic Job
+
+In `.github/workflows/ci.yml`, uncomment the `chromatic` job block:
+
+```yaml
+chromatic:
+  name: Chromatic
+  runs-on: ubuntu-latest
+  needs: build-tokens
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+    - run: npm ci
+    - uses: actions/download-artifact@v4
+      with:
+        name: token-build
+        path: build/
+    - name: Run Chromatic
+      uses: chromaui/action@latest
+      with:
+        projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+        onlyChanged: true
+```
+
+The `onlyChanged: true` flag tells Chromatic to only snapshot stories affected by the PR's changed files — faster runs, less noise.
+
+---
+
+## Step 4 — Capture Baselines
+
+On the first Chromatic run, every story needs an approved baseline snapshot. After the first CI run completes:
+
+1. Go to your Chromatic project dashboard
+2. You'll see all stories flagged as "new" — this is expected
+3. Click **Accept all** to set them as the approved baseline
+4. Future PRs will diff against these baselines
+
+Baselines to capture: all 5 components × light mode = ~15 stories on the first pass.
+
+---
+
+## How It Works Day-to-Day
+
+Once active, on every PR that touches `src/tokens/` or `src/components/`:
+
+1. GitHub Actions runs the Chromatic job
+2. Chromatic snapshots all affected stories
+3. Any visual diff appears as a PR check — **green** if approved, **red** if unapproved changes detected
+4. Diffs require review and approval in the Chromatic UI before the PR check goes green
+5. Merge only after Chromatic passes
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Chromatic job fails with "invalid token" | Check the `CHROMATIC_PROJECT_TOKEN` secret is set correctly in GitHub |
+| Components render unstyled in snapshots | The `build-tokens` job runs first and its artifact is passed to Chromatic — check the artifact upload/download steps |
+| Too many stories flagged on every PR | `onlyChanged: true` should limit this — verify it's set in the workflow |
+| Baselines keep resetting | Make sure you're committing to a consistent branch — Chromatic tracks baselines per branch |
