@@ -75,7 +75,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ variant = "success", ...rest }, ref) => {
-    const recipe = useRecipe({ key: "badge" });
+    const recipe = useRecipe({ key: "dsBadge" });
     const styles = recipe({ variant });
     return <chakra.span ref={ref} {...styles} {...rest} />;
   }
@@ -83,6 +83,10 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 
 Badge.displayName = "Badge";
 ```
+
+> **Important:** `defineRecipe` returns a definition object — it is not callable directly. Always retrieve a callable recipe via `useRecipe({ key: "..." })` in the component. The key must match what you register in `system.ts` (see Step 4).
+>
+> **Use a `ds`-prefixed key.** Chakra ships with its own built-in recipes under common names (`button`, `input`, `card`, etc.). Registering under the same name causes TypeScript to resolve variant types against Chakra's built-in signature rather than yours. Prefix all custom recipe keys with `ds` (e.g. `dsBadge`) to avoid the collision.
 
 ### Step 4 — Register the recipe
 
@@ -93,10 +97,10 @@ import { badgeRecipe } from "./components/Badge/recipe";
 const config = defineConfig({
   theme: {
     recipes: {
-      button: buttonRecipe,
-      card: cardRecipe,
-      input: inputRecipe,
-      badge: badgeRecipe,   // ← add this
+      dsButton: buttonRecipe,
+      dsCard: cardRecipe,
+      dsInput: inputRecipe,
+      dsBadge: badgeRecipe,   // ← add this
     },
   },
 });

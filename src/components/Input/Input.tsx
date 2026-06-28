@@ -7,7 +7,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ isInvalid, ...rest }, ref) => {
-    const recipe = useRecipe({ key: "input" });
+    const recipe = useRecipe({ key: "dsInput" });
     const styles = recipe();
 
     return (
