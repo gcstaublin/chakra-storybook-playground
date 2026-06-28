@@ -28,3 +28,11 @@ Chakra UI v3 ships with its own built-in recipes registered under common names l
 **The fix used here:** all custom recipes are registered under `ds`-prefixed keys (`dsButton`, `dsCard`, `dsInput`, `dsGrid`) so there is no collision. Keep this convention when adding new recipes.
 
 **Same issue applies to slot recipes:** Chakra owns `"dialog"` as a built-in slot recipe key. Our `Dialog` component works around this by calling its styles object directly from the import rather than going through `useSlotRecipe`.
+
+---
+
+## Storybook does not type-check — CI does
+
+Storybook's dev server and `build-storybook` both use `esbuild` under the hood, which transpiles TypeScript but never type-checks it. TypeScript errors are completely invisible during Storybook development and will pass the Storybook CI job without complaint.
+
+The separate `typecheck` CI job (`npx tsc --noEmit`) is the only gate that catches type errors. If you're seeing something behave unexpectedly and Storybook looks fine, run `npx tsc --noEmit` locally — there may be a type error that esbuild is silently swallowing.
