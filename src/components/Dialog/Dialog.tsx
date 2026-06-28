@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { chakra } from "@chakra-ui/react";
+import { dialogStyles } from "./recipe";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ export interface DialogProps {
 
 export function Dialog({ isOpen, onClose, title, children }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const styles = dialogStyles;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -23,44 +25,17 @@ export function Dialog({ isOpen, onClose, title, children }: DialogProps) {
   if (!isOpen) return null;
 
   return (
-    <chakra.div
-      position="fixed"
-      inset="0"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      zIndex="var(--ds-dialog-z-index)"
-    >
-      <chakra.div
-        position="absolute"
-        inset="0"
-        bg="var(--ds-dialog-overlay-bg)"
-        opacity={0.5}
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <chakra.div css={styles.root}>
+      <chakra.div css={styles.overlay} onClick={onClose} aria-hidden="true" />
       <chakra.div
         ref={dialogRef}
+        css={styles.content}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "dialog-title" : undefined}
-        position="relative"
-        bg="var(--ds-dialog-bg)"
-        borderRadius="var(--ds-dialog-border-radius)"
-        padding="var(--ds-dialog-padding)"
-        boxShadow="var(--ds-dialog-shadow)"
-        maxW="560px"
-        w="90%"
-        zIndex={1}
       >
         {title && (
-          <chakra.h2
-            id="dialog-title"
-            fontSize="var(--ds-font-size-xl)"
-            fontWeight="var(--ds-font-weight-semibold)"
-            color="var(--ds-color-text-primary)"
-            mb="var(--ds-space-4)"
-          >
+          <chakra.h2 id="dialog-title" css={styles.title}>
             {title}
           </chakra.h2>
         )}

@@ -1,26 +1,22 @@
 import { forwardRef } from "react";
-import { chakra } from "@chakra-ui/react";
+import { chakra, useRecipe } from "@chakra-ui/react";
 
 export interface GridProps extends React.HTMLAttributes<HTMLDivElement> {
   columns?: number;
   gap?: "sm" | "md" | "lg";
 }
 
-const gapMap = {
-  sm: "var(--ds-grid-gap-sm)",
-  md: "var(--ds-grid-gap-md)",
-  lg: "var(--ds-grid-gap-lg)",
-};
-
 export const Grid = forwardRef<HTMLDivElement, GridProps>(
   ({ columns = 12, gap = "md", style, ...rest }, ref) => {
+    const recipe = useRecipe({ key: "grid" });
+    const styles = recipe({ gap });
+
     return (
       <chakra.div
         ref={ref}
-        display="grid"
-        gridTemplateColumns={`repeat(${columns}, 1fr)`}
-        gap={gapMap[gap]}
-        style={style}
+        css={styles}
+        // gridTemplateColumns is dynamic (arbitrary column count) so it cannot be expressed as a recipe variant
+        style={{ gridTemplateColumns: `repeat(${columns}, 1fr)`, ...style }}
         {...rest}
       />
     );
