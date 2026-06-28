@@ -1,0 +1,30 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/The More You Know" />
+
+# The More You Know
+
+Non-obvious things about this codebase that are easy to forget and hard to rediscover. Add to this any time something surprises you.
+
+---
+
+## CSS variable prefix
+
+Every design token is output as a CSS custom property prefixed with `--ds-` (e.g. `--ds-color-action-primary`). The prefix is set in two places:
+
+- **`style-dictionary.config.mjs`** — controls the prefix on the Style Dictionary CSS output
+- **`src/system.ts`** — `cssVarsPrefix: "ds"` tells Chakra UI what prefix to use for its internal token lookups
+
+However, changing the prefix also requires a find-and-replace across every recipe file (`Button`, `Card`, `Input`, `Grid`, `Dialog`) and any story files that reference `var(--ds-*)` directly. The strings are hardcoded literals — there is no single source of truth for the prefix beyond the two config files above.
+
+**If you ever rename the prefix:** search the entire `src/` directory for `--ds-` and replace all occurrences alongside the two config file changes.
+
+---
+
+## Recipe keys must not collide with Chakra built-ins
+
+Chakra UI v3 ships with its own built-in recipes registered under common names like `button`, `input`, and `card`. If you register a custom recipe in `system.ts` under one of those same names, TypeScript will resolve `useRecipe({ key: "button" })` to Chakra's built-in type — not yours — causing variant type errors at compile time even though the runtime behavior is correct.
+
+**The fix used here:** all custom recipes are registered under `ds`-prefixed keys (`dsButton`, `dsCard`, `dsInput`, `dsGrid`) so there is no collision. Keep this convention when adding new recipes.
+
+**Same issue applies to slot recipes:** Chakra owns `"dialog"` as a built-in slot recipe key. Our `Dialog` component works around this by calling its styles object directly from the import rather than going through `useSlotRecipe`.
