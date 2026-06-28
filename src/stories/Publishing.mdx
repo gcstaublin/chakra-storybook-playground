@@ -93,6 +93,23 @@ Establish a deprecation convention (old var → new var with a notice period) be
 
 ---
 
+## Component naming — don't prefix
+
+A natural instinct when publishing is to prefix component names to avoid collisions — `DsButton` instead of `Button`, for example. The industry convention is to resist this.
+
+The **package scope handles the namespace**. Consumers alias at the import site if they need both your component and Chakra's:
+
+```tsx
+import { Button } from "@your-scope/components";       // yours
+import { Button as ChakraButton } from "@chakra-ui/react"; // Chakra's
+```
+
+Prefixing component names leaks implementation detail into every usage site, gets noisy at scale, and creates a breaking change if you ever rebrand.
+
+The one exception: generic layout primitives with near-certain collision names (`Text`, `Box`, `Stack`) may benefit from more specific names (`PageGrid`, `LayoutStack`) on a case-by-case basis — but that's not a blanket policy.
+
+---
+
 ## When to make the move
 
 The single-package approach is the right starting point. Move to the monorepo split when:
