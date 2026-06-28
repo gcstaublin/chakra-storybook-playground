@@ -1,0 +1,119 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Documentation/Publishing" />
+
+# Publishing
+
+Planning notes for eventually distributing this project as one or more npm packages. Nothing here is implemented — this is a reference for when the time comes.
+
+---
+
+## Option A — Single package
+
+Everything ships together: tokens, recipes, and components in one npm package.
+
+### What consumers install
+
+Chakra UI should be declared as a `peerDependency`, not a `dependency`. This means:
+
+- Your package ships lean — no Chakra bundled inside it
+- Consumers supply their own Chakra version, avoiding duplication and version conflicts
+- React should also be a `peerDependency` for the same reason
+
+### Recommended setup
+
+| Concern | Recommendation |
+|---|---|
+| Bundler | Vite library mode (`build.lib` in `vite.config.ts`) — already in the stack |
+| Type declarations | `vite-plugin-dts` to emit `.d.ts` files alongside the build |
+| Package entry points | Use the `exports` field in `package.json` (not just `main`) to support ESM and CJS consumers |
+| Versioning | Semver + conventional commits established before external users depend on it |
+
+### The non-obvious part — token CSS delivery
+
+The component styles reference `var(--ds-*)` CSS custom properties. Those vars are defined in the token CSS output (`build/css/tokens.css`). Consumers must load this CSS or nothing will look right — and the error will be silent and confusing.
+
+Options:
+- Export the CSS as a side-effect import consumers add explicitly: `import "@your-scope/package/css"`
+- Or include it as a side-effect in the package entry so it loads automatically
+
+Whichever you choose, document it prominently in the package README.
+
+---
+
+## Option B — Monorepo with two packages (recommended long-term)
+
+Split tokens and components into separate packages within a monorepo. This is more setup upfront but pays off quickly.
+
+### Package structure
+
+```
+packages/
+├── tokens/       → @your-scope/tokens
+└── components/   → @your-scope/components
+apps/
+└── storybook/    → internal docs app, not published
+```
+
+### `@your-scope/tokens`
+
+- Ships the Style Dictionary source and all build outputs (CSS, SCSS, TS constants)
+- No React, no Chakra — framework-agnostic
+- Any team (Vue, Svelte, vanilla) can consume just the tokens
+- Consumers import CSS directly: `import "@your-scope/tokens/css"`
+- Versioned independently from components
+
+### `@your-scope/components`
+
+- Ships the Chakra-based components and recipes
+- `peerDependencies`: React, Chakra UI, `@your-scope/tokens`
+- Consumers who only need tokens never pull in React or Chakra
+
+### Token CSS delivery — solved cleanly
+
+In the split model, `@your-scope/tokens` owns the CSS and exports it as a named entry point. The components package doesn't need to re-export it. Consumers import both packages and each one's responsibility is obvious.
+
+### Recommended tooling
+
+| Concern | Recommendation |
+|---|---|
+| Monorepo orchestration | Turborepo — handles build order (`tokens` before `components`), caches outputs |
+| Package linking | npm workspaces or pnpm workspaces — lets components reference local tokens during development without publishing first |
+| Storybook | Lives in `apps/storybook`, depends on both packages, no structural change needed |
+
+---
+
+## The CSS var names are a public API contract
+
+This applies to both options, but matters most in the monorepo split.
+
+Right now, renaming `--ds-color-action-primary` is an internal refactor. Once external consumers depend on the tokens package separately from the components package, a var rename is a **breaking change in tokens** that also silently breaks anyone consuming components — until both packages release coordinated updates.
+
+Establish a deprecation convention (old var → new var with a notice period) before you have external consumers. And consider a major version bump policy for any token rename.
+
+---
+
+## Component naming — don't prefix
+
+A natural instinct when publishing is to prefix component names to avoid collisions — `DsButton` instead of `Button`, for example. The industry convention is to resist this.
+
+The **package scope handles the namespace**. Consumers alias at the import site if they need both your component and Chakra's:
+
+```tsx
+import { Button } from "@your-scope/components";       // yours
+import { Button as ChakraButton } from "@chakra-ui/react"; // Chakra's
+```
+
+Prefixing component names leaks implementation detail into every usage site, gets noisy at scale, and creates a breaking change if you ever rebrand.
+
+The one exception: generic layout primitives with near-certain collision names (`Text`, `Box`, `Stack`) may benefit from more specific names (`PageGrid`, `LayoutStack`) on a case-by-case basis — but that's not a blanket policy.
+
+---
+
+## When to make the move
+
+The single-package approach is the right starting point. Move to the monorepo split when:
+
+- The token system is stable enough that external teams could realistically consume it
+- You want to support non-React consumers
+- Token and component release cadences start to feel like they're getting in each other's way
