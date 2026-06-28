@@ -8,7 +8,7 @@ export interface GridProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const Grid = forwardRef<HTMLDivElement, GridProps>(
   ({ columns = 12, gap = "md", style, ...rest }, ref) => {
-    const recipe = useRecipe({ key: "grid" });
+    const recipe = useRecipe({ key: "dsGrid" });
     const styles = recipe({ gap });
 
     return (

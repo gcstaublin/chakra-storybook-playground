@@ -8,10 +8,10 @@ const config = defineConfig({
   cssVarsPrefix: "ds",
   theme: {
     recipes: {
-      button: buttonRecipe,
-      card: cardRecipe,
-      input: inputRecipe,
-      grid: gridRecipe,
+      dsButton: buttonRecipe,
+      dsCard: cardRecipe,
+      dsInput: inputRecipe,
+      dsGrid: gridRecipe,
     },
   },
 });
