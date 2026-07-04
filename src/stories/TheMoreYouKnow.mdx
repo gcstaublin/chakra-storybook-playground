@@ -31,6 +31,16 @@ Chakra UI v3 ships with its own built-in recipes registered under common names l
 
 ---
 
+## Figma variable aliases can silently drift from the token JSON
+
+The DTCG token files (`src/tokens/*.json`) embed `$extensions.figma.variableId` so each token maps to a real Figma variable, but that mapping is a manually-maintained pointer — nothing enforces that the Figma variable's actual alias chain still resolves to the same value the JSON claims.
+
+Found in practice: `component.json` defines `button-bg-disabled` as `{color-neutral-100}`, but the corresponding Figma variable (`button/bg/disabled`) was aliased to `color/surface/subtle` (neutral-50), one shade off from what the code renders.
+
+**If you're building or auditing a Figma component against these tokens:** don't assume the `variableId` in the JSON is sufficient — pull the live variable via `figma_get_variables` and check what it actually resolves to, not just that an ID exists. When re-embedding variable IDs after a Figma-side token edit, diff the resolved value against the JSON's `$value`, not just the reference.
+
+---
+
 ## Storybook does not type-check — CI does
 
 Storybook's dev server and `build-storybook` both use `esbuild` under the hood, which transpiles TypeScript but never type-checks it. TypeScript errors are completely invisible during Storybook development and will pass the Storybook CI job without complaint.
