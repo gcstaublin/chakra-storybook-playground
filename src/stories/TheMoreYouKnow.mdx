@@ -77,3 +77,24 @@ npm run build:tokens && npx chromatic --project-token=<token>
 ```
 
 CI is not exposed to this — the `chromatic` job depends on `build-tokens` and downloads its artifact, so it always snapshots freshly built tokens.
+
+---
+
+## CI uses `npm install`, not `npm ci` — and must
+
+`npm ci` is normally the right choice for CI: it installs strictly from the lockfile and fails loudly on drift. Here it cannot be used, and the failure is confusing enough to be worth writing down.
+
+Switching the jobs to `npm ci` fails on the Linux runners with:
+
+```
+npm error Missing: @emnapi/core@1.11.3 from lock file
+npm error Missing: @emnapi/runtime@1.11.3 from lock file
+```
+
+`@napi-rs/wasm-runtime` declares `@emnapi/core` and `@emnapi/runtime` as **optional** dependencies at `^1.7.1`. Resolving the tree on macOS skips that branch entirely, so npm writes no top-level entry for either package into `package-lock.json`. On Linux they are needed, `npm ci` refuses to install anything absent from the lockfile, and the job dies before running a single step.
+
+Two things make this hard to diagnose: the error names `@emnapi`, a package nothing in this repo depends on directly, and `npm ci` succeeds locally on macOS — so it only fails in CI.
+
+`npm install --package-lock-only --os=linux --cpu=x64` does **not** fix it. The binding pulling in these deps is `cpu: wasm32`, a fallback target, so resolving for x64 never reaches it.
+
+**Don't convert the jobs to `npm ci`** without first making the lockfile platform-complete, which needs a full regeneration. The workflow carries a comment saying so; this entry is the longer version.
