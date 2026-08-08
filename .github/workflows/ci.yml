@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npx tsc --noEmit
 
   build-tokens:
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run build:tokens
       - uses: actions/upload-artifact@v4
         with:
@@ -45,7 +45,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
       - uses: actions/download-artifact@v4
         with:
           name: token-build
@@ -61,6 +61,11 @@ jobs:
   # See Documentation/Chromatic Setup in Storybook for setup instructions.
   # Note: secrets are not available to pull_request runs from forks, so this
   # job cannot authenticate on fork-originated PRs.
+  #
+  # Jobs use `npm install`, not `npm ci`, deliberately. `@napi-rs/wasm-runtime`
+  # declares @emnapi/{core,runtime} as optional deps, and npm omits them from
+  # the lockfile when resolving on macOS. `npm ci` then fails on Linux runners
+  # with "Missing: @emnapi/core@… from lock file". See #9.
   chromatic:
     name: Chromatic
     runs-on: ubuntu-latest
@@ -73,7 +78,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
       - uses: actions/download-artifact@v4
         with:
           name: token-build
