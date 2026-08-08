@@ -4,47 +4,39 @@ import { Meta } from "@storybook/addon-docs/blocks";
 
 # Chromatic Setup
 
-Chromatic provides visual regression testing — it snapshots every story on each PR and flags any unintended visual changes for review before merge. The CI workflow is already wired up and waiting; it just needs a project token to activate.
+Chromatic provides visual regression testing — it snapshots stories on each PR and flags unintended visual changes for review. **It is active.** The job runs in CI on every pull request and on every push to `main`.
+
+This page documents how it works and how it was set up. There is nothing left to configure.
 
 ---
 
-## Current State
+## How It Works Day-to-Day
 
-The GitHub Actions workflow at `.github/workflows/ci.yml` already:
-- Builds tokens (`npm run build:tokens`)
-- Builds Storybook (`npm run build-storybook`)
-- Has the Chromatic job ready, just commented out
+On every PR:
 
-All you need to do is uncomment the Chromatic job and add the token.
+1. GitHub Actions runs the `chromatic` job
+2. Chromatic snapshots the affected stories and diffs them against the baselines on `main`
+3. Two checks appear on the PR:
+   - **Storybook Publish** — passes once the build uploads; not a gate
+   - **UI Tests** — **red** while diffs are unreviewed, **green** once they're accepted
+4. Review diffs in the Chromatic UI, accepting or denying each one. Accepting updates the baseline
+5. Merging to `main` carries the accepted baselines forward
 
----
+Reviewing happens in Chromatic's web UI, not on GitHub.
 
-## Step 1 — Create a Chromatic Account
+> **Merging is not blocked.** `main` has no branch protection, so GitHub will let you merge with **UI Tests** red. Treat it as a signal you've chosen to respect, not a gate. To make it enforcing, add branch protection on `main` requiring the **UI Tests** check.
 
-1. Go to [chromatic.com](https://www.chromatic.com)
-2. Sign in with your **personal** GitHub account (not a work org)
-3. Create a new personal workspace if prompted
-4. Click **Add project** and select `chakra-storybook-playground`
-5. Copy the project token — it looks like `chpt_xxxxxxxxxxxxxxx`
+### Token changes are the loud case
 
-> **Work org conflict?** If Chromatic keeps routing you to a work org, try signing into GitHub in a separate browser profile that has no work org associated, then connect Chromatic from there.
+Every component reads `var(--ds-*)` from `build/css/tokens.css`, so changing a token touches the file every story depends on. `onlyChanged: true` correctly concludes everything is affected and re-snapshots **all** stories, most showing diffs.
 
----
-
-## Step 2 — Add the Token to GitHub Secrets
-
-1. Go to your repo on GitHub: `github.com/gcstaublin/chakra-storybook-playground`
-2. **Settings → Secrets and variables → Actions**
-3. Click **New repository secret**
-4. Name: `CHROMATIC_PROJECT_TOKEN`
-5. Value: paste your project token
-6. Click **Add secret**
+That's the system working. Practically it means a one-line token change produces a bulk review — eyeball a few representative diffs and accept the rest together. It also burns snapshot quota much faster than a component-scoped change.
 
 ---
 
-## Step 3 — Uncomment the Chromatic Job
+## The CI Job
 
-In `.github/workflows/ci.yml`, uncomment the `chromatic` job block:
+Defined in `.github/workflows/ci.yml`:
 
 ```yaml
 chromatic:
@@ -59,7 +51,7 @@ chromatic:
       with:
         node-version: 22
         cache: npm
-    - run: npm ci
+    - run: npm install
     - uses: actions/download-artifact@v4
       with:
         name: token-build
@@ -71,32 +63,72 @@ chromatic:
         onlyChanged: true
 ```
 
-The `onlyChanged: true` flag tells Chromatic to only snapshot stories affected by the PR's changed files — faster runs, less noise.
+Three details matter:
+
+- **`needs: build-tokens`** and the artifact download. Storybook imports `build/css/tokens.css`, which is gitignored, so the job consumes the token build produced by an earlier job rather than rebuilding it.
+- **`fetch-depth: 0`** and **`onlyChanged: true`**. TurboSnap needs full git history to work out which stories a diff affects.
+- **`npm install`, not `npm ci`** — deliberate. See the entry in *The More You Know* for why `npm ci` fails on Linux runners here.
+
+Note that this job uses `chromaui/action`, which bundles its own Chromatic CLI. The `chromatic` devDependency is only used for manual local runs.
 
 ---
 
-## Step 4 — Capture Baselines
+## Running It Locally
 
-On the first Chromatic run, every story needs an approved baseline snapshot. After the first CI run completes:
+You normally don't need to — CI handles every PR. Local runs are useful for debugging a CI discrepancy, or on fork PRs where GitHub withholds secrets from the workflow.
 
-1. Go to your Chromatic project dashboard
-2. You'll see all stories flagged as "new" — this is expected
-3. Click **Accept all** to set them as the approved baseline
-4. Future PRs will diff against these baselines
+**Always build tokens first:**
 
-Baselines to capture: all 5 components × light mode = ~15 stories on the first pass.
+```bash
+npm run build:tokens && npx chromatic
+```
+
+The CLI builds Storybook on your machine rather than cloning the repo, so whatever is sitting in `build/` is what gets snapshotted. A stale `build/` bakes wrong values into baselines silently.
+
+Pass the token via the environment rather than `--project-token=…` on the command line, so it doesn't land in your shell history:
+
+```bash
+export CHROMATIC_PROJECT_TOKEN=<paste>
+```
+
+Local runs snapshot **every** story, since `onlyChanged` isn't set — more expensive than a CI run.
 
 ---
 
-## How It Works Day-to-Day
+## How It Was Set Up
 
-Once active, on every PR that touches `src/tokens/` or `src/components/`:
+Kept for reference, and because two steps are easy to get wrong.
 
-1. GitHub Actions runs the Chromatic job
-2. Chromatic snapshots all affected stories
-3. Any visual diff appears as a PR check — **green** if approved, **red** if unapproved changes detected
-4. Diffs require review and approval in the Chromatic UI before the PR check goes green
-5. Merge only after Chromatic passes
+### No GitHub personal access token is involved
+
+Chromatic authenticates with a **project token** (`chpt_…`) stored as the `CHROMATIC_PROJECT_TOKEN` repository secret. PR status checks come from the Chromatic **GitHub App**, installed via OAuth. A classic PAT (`ghp_…`) is not part of the flow at any point. An earlier attempt created one; it did not help and had to be revoked.
+
+### Decline work orgs at both auth screens
+
+If your GitHub account belongs to SSO-protected organizations, authorization is interrupted twice, and both prompts invite you to grant access you don't need:
+
+| Screen | What to do |
+| --- | --- |
+| SAML SSO interstitial | Click **Continue** — *not* the green **Authorize** next to the org |
+| OAuth consent | Leave **Organization access** at ✗ — don't click **Request** |
+
+This repo is personal and public, so Chromatic needs zero organization access. Getting stuck here is the "work org conflict" that stalled the original setup attempt.
+
+If Chromatic can't see the repo after declining, that's the GitHub App's installation scope, not the OAuth grant: **Settings → Applications → Installed GitHub Apps → Chromatic → Configure**, and add the repo there.
+
+### Adding the secret
+
+Either the web UI (**Settings → Secrets and variables → Actions → New repository secret**, named `CHROMATIC_PROJECT_TOKEN`), or the CLI. These are two routes to the same place — do one, not both:
+
+```bash
+gh secret set CHROMATIC_PROJECT_TOKEN
+```
+
+Omit `--body` so `gh` prompts with hidden input; passing the value as an argument writes it to your shell history.
+
+### Baselines
+
+The first build establishes the baselines. There is nothing to approve on build 1 — with no prior build to diff against, Chromatic auto-accepts it. Review only applies from build 2 onward.
 
 ---
 
@@ -104,7 +136,9 @@ Once active, on every PR that touches `src/tokens/` or `src/components/`:
 
 | Symptom | Fix |
 | --- | --- |
-| Chromatic job fails with "invalid token" | Check the `CHROMATIC_PROJECT_TOKEN` secret is set correctly in GitHub |
-| Components render unstyled in snapshots | The `build-tokens` job runs first and its artifact is passed to Chromatic — check the artifact upload/download steps |
-| Too many stories flagged on every PR | `onlyChanged: true` should limit this — verify it's set in the workflow |
-| Baselines keep resetting | Make sure you're committing to a consistent branch — Chromatic tracks baselines per branch |
+| Job fails with "invalid token" | Check the `CHROMATIC_PROJECT_TOKEN` secret exists and is named exactly that |
+| Components render unstyled in snapshots | The `build-tokens` artifact didn't reach the job — check the upload/download steps. Locally, run `npm run build:tokens` first |
+| Every story flagged on a token-only change | Expected. Token CSS is a global dependency, so TurboSnap can't narrow it |
+| Chromatic job fails on a PR from a fork | Expected. GitHub withholds secrets from fork-originated `pull_request` runs, so the job can't authenticate |
+| Baselines seem to reset | Chromatic tracks baselines per branch. Confirm you're comparing against `main` |
+| Local run differs from CI | The local CLI and `chromaui/action`'s bundled CLI can be different versions |
