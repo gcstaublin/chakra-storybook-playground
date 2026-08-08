@@ -46,3 +46,34 @@ Found in practice: `component.json` defines `button-bg-disabled` as `{color-neut
 Storybook's dev server and `build-storybook` both use `esbuild` under the hood, which transpiles TypeScript but never type-checks it. TypeScript errors are completely invisible during Storybook development and will pass the Storybook CI job without complaint.
 
 The separate `typecheck` CI job (`npx tsc --noEmit`) is the only gate that catches type errors. If you're seeing something behave unexpectedly and Storybook looks fine, run `npx tsc --noEmit` locally — there may be a type error that esbuild is silently swallowing.
+
+---
+
+## Chromatic needs no GitHub personal access token
+
+Chromatic authenticates with a **project token** (`chpt_…`) stored as the `CHROMATIC_PROJECT_TOKEN` repository secret. PR status checks come from the Chromatic **GitHub App**, installed via OAuth. A classic personal access token (`ghp_…`) is not part of the flow at any point.
+
+This is worth stating plainly because the sign-in flow makes it look otherwise. If your account belongs to SSO-protected organizations, GitHub interrupts authorization twice, and both prompts invite you to grant org access you don't need:
+
+- **The SAML SSO interstitial** — click **Continue**, not **Authorize**
+- **The OAuth consent screen** — leave Organization access at ✗, don't click **Request**
+
+This repo is personal and public, so Chromatic needs zero organization access.
+
+**If Chromatic can't see the repo after declining:** that's the GitHub App installation scope, not the OAuth grant. Settings → Applications → Installed GitHub Apps → Chromatic → Configure, and add the repo there. Creating a personal access token will not fix it — that path was tried and had to be undone.
+
+---
+
+## Chromatic snapshots your local `build/`, not the repo's
+
+The Chromatic CLI builds Storybook **on your machine** and uploads the static output — it does not clone the repo. Combined with two existing facts, this has a sharp edge: `.storybook/preview.tsx` imports `../build/css/tokens.css`, and `build/` is gitignored.
+
+So whatever token CSS happens to be sitting in `build/` at the moment you run `npx chromatic` is what gets baked into the baselines. Stale output produces baselines that look plausible but encode the wrong values, and every later PR diffs against them. Nothing errors.
+
+**Always run `npm run build:tokens` immediately before a local Chromatic run:**
+
+```bash
+npm run build:tokens && npx chromatic --project-token=<token>
+```
+
+CI is not exposed to this — the `chromatic` job depends on `build-tokens` and downloads its artifact, so it always snapshots freshly built tokens.
