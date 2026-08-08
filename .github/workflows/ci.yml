@@ -57,27 +57,34 @@ jobs:
           path: storybook-static/
           retention-days: 3
 
-  # Chromatic visual regression — requires CHROMATIC_PROJECT_TOKEN secret
-  # See Documentation/Chromatic Setup in Storybook for setup instructions
-  # chromatic:
-  #   name: Chromatic
-  #   runs-on: ubuntu-latest
-  #   needs: build-tokens
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: npm
-  #     - run: npm ci
-  #     - uses: actions/download-artifact@v4
-  #       with:
-  #         name: token-build
-  #         path: build/
-  #     - name: Run Chromatic
-  #       uses: chromaui/action@latest
-  #       with:
-  #         projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
-  #         onlyChanged: true
+  # Chromatic visual regression — requires the CHROMATIC_PROJECT_TOKEN secret.
+  # See Documentation/Chromatic Setup in Storybook for setup instructions.
+  # Note: secrets are not available to pull_request runs from forks, so this
+  # job cannot authenticate on fork-originated PRs.
+  #
+  # Jobs use `npm install`, not `npm ci`, deliberately. `@napi-rs/wasm-runtime`
+  # declares @emnapi/{core,runtime} as optional deps, and npm omits them from
+  # the lockfile when resolving on macOS. `npm ci` then fails on Linux runners
+  # with "Missing: @emnapi/core@… from lock file". See #9.
+  chromatic:
+    name: Chromatic
+    runs-on: ubuntu-latest
+    needs: build-tokens
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - uses: actions/download-artifact@v4
+        with:
+          name: token-build
+          path: build/
+      - name: Run Chromatic
+        uses: chromaui/action@latest
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          onlyChanged: true
