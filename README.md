@@ -7,7 +7,7 @@ A design token-driven component library built with Chakra UI v3, Style Dictionar
 | Layer | Tool |
 | --- | --- |
 | Components | Chakra UI v3 (recipe-based) |
-| Token build | Style Dictionary v4 |
+| Token build | Style Dictionary v5 |
 | Documentation | Storybook v10 |
 | Token format | DTCG spec (3-layer: base → semantic → component) |
 | Colors | OKLCH (authored) → hex (Figma sync) |
